@@ -8,6 +8,8 @@ import {
   showLogoutSuccessToast,
   handleGraphQLErrorWithToast,
 } from "@/utils/auth-interceptor";
+import { store } from "@/redux/store";
+import { setUser, clearUser } from "@/redux/slices/userSlice";
 
 // Types
 export interface User {
@@ -46,7 +48,7 @@ export const login = async (username: string, password: string) => {
     });
 
     if (response.success && response.data?.login) {
-      // Save tokens to localStorage
+      // Save tokens to localStorage only
       const { accessToken, refreshToken, user } = response.data.login;
 
       if (accessToken) {
@@ -57,13 +59,14 @@ export const login = async (username: string, password: string) => {
         localStorage.setItem("refreshToken", refreshToken);
       }
 
+      // Store user data in Redux
       if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
+        // Dispatch to Redux store
+        store.dispatch(setUser(user));
+
         // Show success toast
         showLoginSuccessToast(user);
       }
-
-      localStorage.setItem("isAuthenticated", "true");
     }
 
     return response;
@@ -100,11 +103,12 @@ export const logout = async () => {
     const response = await clientMutation<{ logout: boolean }>(LOGOUT, {});
 
     if (response.success) {
-      // Clear auth data from localStorage
+      // Clear tokens from localStorage
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-      localStorage.removeItem("isAuthenticated");
+
+      // Clear user from Redux
+      store.dispatch(clearUser());
 
       // Show success toast
       showLogoutSuccessToast();

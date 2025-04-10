@@ -1,35 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { LogOut } from "lucide-react";
 import { logout as logoutGraphQL } from "@/graphQl/auth-service";
 import { handleGraphQLError } from "@/utils/api";
-
-type User = {
-  email: string;
-  name?: string;
-} | null;
+import { useAppSelector } from "@/redux/hooks";
 
 export default function LogoutButton() {
   const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<User>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    // Get user info from localStorage on client side
-    try {
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-    } catch (error) {
-      console.error("Error loading user data:", error);
-    }
-  }, []);
+  // Get user data from Redux store
+  const { user } = useAppSelector((state) => state.user);
 
   const handleLogout = async () => {
     try {
@@ -50,9 +36,7 @@ export default function LogoutButton() {
         handleGraphQLError(error)
       );
     } finally {
-      // Clear authentication data from localStorage
-      localStorage.removeItem("isAuthenticated");
-      localStorage.removeItem("user");
+      // Clear tokens from localStorage (user data is cleared by the logout function)
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
 
@@ -73,7 +57,7 @@ export default function LogoutButton() {
     <div className="flex items-center">
       {user && (
         <span className="text-sm text-gray-600 mr-2">
-          {user.name || user.email}
+          {user.firstName || user.name || user.email}
         </span>
       )}
       <Button

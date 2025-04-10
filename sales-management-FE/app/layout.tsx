@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { ReduxProvider } from "@/redux/provider";
 
 export const metadata: Metadata = {
   title: "Sales Management",
@@ -16,8 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
-        <Toaster />
+        <ReduxProvider>
+          {children}
+          <Toaster />
+        </ReduxProvider>
       </body>
     </html>
   );

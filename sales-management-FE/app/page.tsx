@@ -3,22 +3,26 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Dashboard from "@/dashboard";
+import { useAppSelector } from "@/redux/hooks";
 
 export default function Home() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check if user is authenticated using localStorage
-    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+  // Get authentication state from Redux
+  const { isAuthenticated } = useAppSelector((state) => state.user);
 
-    if (!isAuthenticated) {
-      // Redirect to login if not authenticated
+  useEffect(() => {
+    // Check if tokens exist in localStorage (required for API calls)
+    const hasTokens = localStorage.getItem("accessToken") !== null;
+
+    if (!isAuthenticated || !hasTokens) {
+      // Redirect to login if not authenticated or no tokens
       router.push("/login");
     } else {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [router, isAuthenticated]);
 
   // Show loading state or dashboard based on authentication
   if (isLoading) {

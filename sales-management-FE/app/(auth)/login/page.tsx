@@ -27,6 +27,8 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { login } from "@/graphQl/auth-service";
 import { handleGraphQLError, shouldFallbackToLocal } from "@/utils/api";
+import { store } from "@/redux/store";
+import { setUser } from "@/redux/slices/userSlice";
 
 // Define form schema using zod
 const loginSchema = z.object({
@@ -38,12 +40,6 @@ const loginSchema = z.object({
 
 // Define the form values type from the schema
 type LoginFormValues = z.infer<typeof loginSchema>;
-
-// Define user type
-type User = {
-  email: string;
-  name?: string;
-};
 
 // Static credentials for testing (keeping these for fallback when API is not available)
 const STATIC_CREDENTIALS = [
@@ -76,7 +72,7 @@ export default function LoginPage() {
       } else {
         // Use GraphQL authentication
         const response = await login(data.email, data.password);
-        debugger;
+
         if (response.success && response.data?.login?.success) {
           toast({
             title: "Login successful",
@@ -138,15 +134,22 @@ export default function LoginPage() {
     );
 
     if (staticUser) {
-      // Find user info to store
-      const userToStore: User = {
+      // Create user object for Redux
+      const userToStore = {
         email: data.email,
-        name: staticUser.name,
+        firstName: staticUser.name.split(" ")[0],
+        lastName: staticUser.name.split(" ")[1] || "",
+        role: "USER",
+        isActive: true,
+        isTwoFactorEnabled: false,
       };
 
-      // Save authentication state in localStorage
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("user", JSON.stringify(userToStore));
+      // Store user in Redux
+      store.dispatch(setUser(userToStore));
+
+      // Save tokens to localStorage (using dummy tokens for local auth)
+      localStorage.setItem("accessToken", "local-auth-dummy-token");
+      localStorage.setItem("refreshToken", "local-auth-dummy-refresh-token");
 
       toast({
         title: "Login successful",
@@ -181,7 +184,7 @@ export default function LoginPage() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="name@example.com"
+                      placeholder="Enter Email"
                       type="email"
                       autoComplete="email"
                       disabled={isLoading}
@@ -200,7 +203,7 @@ export default function LoginPage() {
                   <FormLabel>Password</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="••••••••"
+                      placeholder="Enter Password"
                       type="password"
                       autoComplete="current-password"
                       disabled={isLoading}
