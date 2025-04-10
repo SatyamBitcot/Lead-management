@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
@@ -25,6 +25,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
+import { login } from "@/graphQl/auth-service";
+import { handleGraphQLError, shouldFallbackToLocal } from "@/utils/api";
 
 // Define form schema using zod
 const loginSchema = z.object({
@@ -43,7 +45,7 @@ type User = {
   name?: string;
 };
 
-// Static credentials for testing
+// Static credentials for testing (keeping these for fallback when API is not available)
 const STATIC_CREDENTIALS = [
   { email: "admin@example.com", password: "Admin123456", name: "Admin User" },
   { email: "user@example.com", password: "User12345", name: "Test User" },
@@ -52,20 +54,7 @@ const STATIC_CREDENTIALS = [
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
-
-  // Load any registered users from localStorage on mount
-  useEffect(() => {
-    try {
-      const registeredUser = localStorage.getItem("registeredUser");
-      if (registeredUser) {
-        const parsedUser = JSON.parse(registeredUser);
-        setRegisteredUsers([parsedUser]);
-      }
-    } catch (error) {
-      console.error("Error loading registered users:", error);
-    }
-  }, []);
+  const [useLocalAuth, setUseLocalAuth] = useState<boolean>(false);
 
   // Initialize form with react-hook-form and zod validation
   const form = useForm<LoginFormValues>({
@@ -81,62 +70,93 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Check credentials against static list and registered users
-      const staticUser = STATIC_CREDENTIALS.find(
-        (cred) => cred.email === data.email && cred.password === data.password
-      );
-
-      // Check if the user is trying to login with registered user credentials
-      // For registered users, we accept any password that meets validation
-      // since we don't actually store passwords securely in this demo
-      const isRegisteredUser = registeredUsers.some(
-        (user) => user.email === data.email && data.password.length >= 8
-      );
-
-      if (staticUser || isRegisteredUser) {
-        // Find user info to store
-        const userToStore: User = {
-          email: data.email,
-        };
-
-        // Add name if available
-        if (staticUser && staticUser.name) {
-          userToStore.name = staticUser.name;
-        } else if (isRegisteredUser) {
-          const regUser = registeredUsers.find(
-            (user) => user.email === data.email
-          );
-          if (regUser) {
-            userToStore.name = `${regUser.firstName} ${regUser.lastName}`;
-          }
-        }
-
-        // Save authentication state in localStorage
-        localStorage.setItem("isAuthenticated", "true");
-        localStorage.setItem("user", JSON.stringify(userToStore));
-
-        toast({
-          title: "Login successful",
-          description: "You have been logged in successfully.",
-        });
-
-        // Redirect to dashboard after successful login
-        router.push("/");
+      if (useLocalAuth) {
+        // Fallback to local authentication if GraphQL API is not available
+        await handleLocalAuth(data);
       } else {
-        throw new Error("Invalid credentials");
+        // Use GraphQL authentication
+        const response = await login(data.email, data.password);
+        debugger;
+        if (response.success && response.data?.login?.success) {
+          toast({
+            title: "Login successful",
+            description:
+              response.data.login.message ||
+              "You have been logged in successfully.",
+          });
+
+          // Redirect to dashboard after successful login
+          router.push("/");
+        } else {
+          throw new Error(
+            response.data?.login?.message ||
+              response.message ||
+              "Invalid credentials"
+          );
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      toast({
-        variant: "destructive",
-        title: "Login failed",
-        description: "Your email or password is incorrect. Please try again.",
-      });
+
+      // Get user-friendly error message
+      const errorMessage = handleGraphQLError(error);
+
+      // If error suggests we should use local auth
+      if (!useLocalAuth && shouldFallbackToLocal(error)) {
+        setUseLocalAuth(true);
+        try {
+          await handleLocalAuth(data);
+          return;
+        } catch (localError) {
+          // If local auth also fails, show error
+          toast({
+            variant: "destructive",
+            title: "Login failed",
+            description: errorMessage,
+          });
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  // Local authentication handler (fallback)
+  async function handleLocalAuth(data: LoginFormValues) {
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Check credentials against static list
+    const staticUser = STATIC_CREDENTIALS.find(
+      (cred) => cred.email === data.email && cred.password === data.password
+    );
+
+    if (staticUser) {
+      // Find user info to store
+      const userToStore: User = {
+        email: data.email,
+        name: staticUser.name,
+      };
+
+      // Save authentication state in localStorage
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("user", JSON.stringify(userToStore));
+
+      toast({
+        title: "Login successful",
+        description: "You have been logged in successfully (using local auth).",
+      });
+
+      // Redirect to dashboard after successful login
+      router.push("/");
+    } else {
+      throw new Error("Invalid credentials");
     }
   }
 
@@ -196,11 +216,6 @@ export default function LoginPage() {
             </Button>
           </form>
         </Form>
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100">
-          <p className="font-semibold">Test Credentials:</p>
-          <p>Email: admin@example.com</p>
-          <p>Password: Admin123456</p>
-        </div>
       </CardContent>
       <CardFooter className="flex flex-col space-y-4">
         <div className="text-sm text-center text-gray-500">

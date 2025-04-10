@@ -25,6 +25,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
+import { register as registerUser } from "@/graphQl/auth-service";
+import { CreateUserInput } from "@/graphQl/auth-service";
+import { handleGraphQLError, shouldFallbackToLocal } from "@/utils/api";
 
 // Define form schema using zod
 const registerSchema = z
@@ -59,6 +62,8 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [useLocalRegistration, setUseLocalRegistration] =
+    useState<boolean>(false);
 
   // Initialize form with react-hook-form and zod validation
   const form = useForm<RegisterFormValues>({
@@ -77,39 +82,91 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // For static authentication, we'll just simulate registration success
-      // In a real app, you would send this data to your API
-      localStorage.setItem(
-        "registeredUser",
-        JSON.stringify({
+      if (useLocalRegistration) {
+        // Fallback to local registration if GraphQL API is not available
+        await handleLocalRegistration(data);
+      } else {
+        // Use GraphQL registration
+        const userInput: CreateUserInput = {
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,
-          // Don't store plain text password even in demo
-        })
-      );
+          password: data.password,
+          // Default values for optional fields
+          isTwoFactorEnabled: false,
+          role: "SMALL_BUSINESS", // Default role
+        };
 
-      toast({
-        title: "Registration successful",
-        description: "Your account has been created successfully.",
-      });
+        const response = await registerUser(userInput);
+        debugger;
+        if (response.success && response.data?.createUser) {
+          toast({
+            title: "Registration successful",
+            description: "Your account has been created successfully.",
+          });
 
-      // Redirect to login page after successful registration
-      router.push("/login");
-    } catch (error) {
+          // Redirect to login page after successful registration
+          router.push("/login");
+        } else {
+          throw new Error(response.message || "Registration failed");
+        }
+      }
+    } catch (error: any) {
       console.error("Registration error:", error);
-      toast({
-        variant: "destructive",
-        title: "Registration failed",
-        description:
-          "There was a problem creating your account. Please try again.",
-      });
+
+      // Get user-friendly error message
+      const errorMessage = handleGraphQLError(error);
+
+      // If error suggests we should use local registration
+      if (!useLocalRegistration && shouldFallbackToLocal(error)) {
+        setUseLocalRegistration(true);
+        try {
+          await handleLocalRegistration(data);
+          return;
+        } catch (localError) {
+          // If local registration also fails, show error
+          toast({
+            variant: "destructive",
+            title: "Registration failed",
+            description: errorMessage,
+          });
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Registration failed",
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
+  }
+
+  // Local registration handler (fallback)
+  async function handleLocalRegistration(data: RegisterFormValues) {
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // For static authentication, we'll just simulate registration success
+    localStorage.setItem(
+      "registeredUser",
+      JSON.stringify({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        // Don't store plain text password even in demo
+      })
+    );
+
+    toast({
+      title: "Registration successful",
+      description:
+        "Your account has been created successfully (using local storage).",
+    });
+
+    // Redirect to login page after successful registration
+    router.push("/login");
   }
 
   return (
@@ -223,10 +280,6 @@ export default function RegisterPage() {
             </Button>
           </form>
         </Form>
-        <div className="mt-4 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-800 border border-yellow-100">
-          <p className="font-medium">Note: This is a demo registration</p>
-          <p>Data will be stored in your browser's localStorage only.</p>
-        </div>
       </CardContent>
       <CardFooter>
         <div className="text-sm text-center text-gray-500 w-full">
