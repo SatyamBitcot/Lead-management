@@ -2,6 +2,12 @@
 
 import { clientMutation } from "./apollo-client";
 import { LOGIN, LOGOUT, REGISTER, VALIDATE_TOKEN } from "./auth-queries";
+import {
+  showLoginSuccessToast,
+  showRegisterSuccessToast,
+  showLogoutSuccessToast,
+  handleGraphQLErrorWithToast,
+} from "@/utils/auth-interceptor";
 
 // Types
 export interface User {
@@ -33,65 +39,99 @@ export interface CreateUserInput {
 
 // Login function
 export const login = async (username: string, password: string) => {
-  const response = await clientMutation<{ login: AuthResponse }>(LOGIN, {
-    username,
-    password,
-  });
+  try {
+    const response = await clientMutation<{ login: AuthResponse }>(LOGIN, {
+      username,
+      password,
+    });
 
-  if (response.success && response.data?.login) {
-    // Save tokens to localStorage
-    const { accessToken, refreshToken, user } = response.data.login;
+    if (response.success && response.data?.login) {
+      // Save tokens to localStorage
+      const { accessToken, refreshToken, user } = response.data.login;
 
-    if (accessToken) {
-      localStorage.setItem("accessToken", accessToken);
+      if (accessToken) {
+        localStorage.setItem("accessToken", accessToken);
+      }
+
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
+      }
+
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+        // Show success toast
+        showLoginSuccessToast(user);
+      }
+
+      localStorage.setItem("isAuthenticated", "true");
     }
 
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
-    }
-
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-    }
-
-    localStorage.setItem("isAuthenticated", "true");
+    return response;
+  } catch (error: any) {
+    // Handle error with toast
+    handleGraphQLErrorWithToast(error);
+    return { success: false, message: error.message, loading: false };
   }
-
-  return response;
 };
 
 // Register function
 export const register = async (userInput: CreateUserInput) => {
-  const response = await clientMutation<{ createUser: User }>(REGISTER, {
-    createUserInput: userInput,
-  });
+  try {
+    const response = await clientMutation<{ createUser: User }>(REGISTER, {
+      createUserInput: userInput,
+    });
 
-  return response;
+    if (response.success) {
+      // Show success toast
+      showRegisterSuccessToast();
+    }
+
+    return response;
+  } catch (error: any) {
+    // Handle error with toast
+    handleGraphQLErrorWithToast(error);
+    return { success: false, message: error.message, loading: false };
+  }
 };
 
 // Logout function
 export const logout = async () => {
-  const response = await clientMutation<{ logout: boolean }>(LOGOUT, {});
+  try {
+    const response = await clientMutation<{ logout: boolean }>(LOGOUT, {});
 
-  if (response.success) {
-    // Clear auth data from localStorage
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("isAuthenticated");
+    if (response.success) {
+      // Clear auth data from localStorage
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("isAuthenticated");
+
+      // Show success toast
+      showLogoutSuccessToast();
+    }
+
+    return response;
+  } catch (error: any) {
+    // Handle error with toast
+    handleGraphQLErrorWithToast(error);
+    return { success: false, message: error.message, loading: false };
   }
-
-  return response;
 };
 
 // Validate token function
 export const validateToken = async (token: string) => {
-  const response = await clientMutation<{ validateToken: boolean }>(
-    VALIDATE_TOKEN,
-    {
-      token,
-    }
-  );
+  try {
+    const response = await clientMutation<{ validateToken: boolean }>(
+      VALIDATE_TOKEN,
+      {
+        token,
+      }
+    );
 
-  return response;
+    return response;
+  } catch (error: any) {
+    // Handle error with toast
+    handleGraphQLErrorWithToast(error);
+    return { success: false, message: error.message, loading: false };
+  }
 };

@@ -8,28 +8,14 @@ import {
   FetchResult,
 } from "@apollo/client";
 import { getApiUrl } from "@/utils/api";
+import {
+  createAuthClient,
+  handleGraphQLErrorWithToast,
+} from "@/utils/auth-interceptor";
 
-// Create Apollo client with auth token from localStorage
+// Get Apollo client with auth interceptor
 export const getClient = () => {
-  // Get auth token from localStorage (client-side only)
-  let token = "";
-  if (typeof window !== "undefined") {
-    token = localStorage.getItem("accessToken") || "";
-  }
-
-  const headers = {
-    authorization: token ? `Bearer ${token}` : "",
-    "x-tz": Intl.DateTimeFormat().resolvedOptions().timeZone,
-  };
-
-  return new ApolloClient({
-    ssrMode: false,
-    link: new HttpLink({
-      uri: getApiUrl(),
-      headers,
-    }),
-    cache: new InMemoryCache(),
-  });
+  return createAuthClient();
 };
 
 // Client-side query function
@@ -58,11 +44,8 @@ export const fetchQuery = async <
     loading = false;
     success = true;
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      message = err.message;
-    } else {
-      message = String(err);
-    }
+    const error = err instanceof Error ? err : new Error(String(err));
+    message = handleGraphQLErrorWithToast(error);
     loading = false;
     success = false;
   }
@@ -95,11 +78,8 @@ export const clientMutation = async <
     loading = false;
     success = true;
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      message = err.message;
-    } else {
-      message = String(err);
-    }
+    const error = err instanceof Error ? err : new Error(String(err));
+    message = handleGraphQLErrorWithToast(error);
     loading = false;
     success = false;
   }
