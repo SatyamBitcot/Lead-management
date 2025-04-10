@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+only changes code to relevant request , dont change other code.
+dont give comments liks (... code for same) , give complete code

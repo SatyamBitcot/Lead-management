@@ -1,0 +1,123 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponseDto {
+  accessToken: String
+  message: String!
+  refreshToken: String
+  success: Boolean!
+  user: User
+}
+
+input CreateUserInput {
+  email: String!
+  firstName: String!
+  isTwoFactorEnabled: Boolean
+  lastName: String!
+  password: String!
+  role: UserRole
+}
+
+type Customer {
+  contactPerson: String!
+  createdAt: DateTime!
+  email: String!
+  id: ID!
+  isActive: Boolean!
+  isFavorite: Boolean!
+  name: String!
+  phone: String!
+  type: CustomerType!
+  updatedAt: DateTime!
+}
+
+"""Customer type categories"""
+enum CustomerType {
+  CORPORATE
+  SMALL_BUSINESS
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Job {
+  assignedTo: String!
+  createdAt: DateTime!
+  customer: Customer!
+  customerId: String!
+  dueDate: DateTime
+  id: ID!
+  isApproved: Boolean!
+  jobNumber: String!
+  name: String!
+  priority: JobPriority!
+  status: JobStatus!
+  updatedAt: DateTime!
+}
+
+"""Job priority levels"""
+enum JobPriority {
+  HIGH
+  NORMAL
+  URGENT
+}
+
+"""Job status types"""
+enum JobStatus {
+  APPROVAL
+  COMPLETED
+  DESIGN
+  PRINT
+  PRODUCTION
+}
+
+type Mutation {
+  createUser(createUserInput: CreateUserInput!): User!
+  deleteUser(id: String!): Boolean!
+  login(
+    password: String!
+
+    """The email of the user"""
+    username: String!
+  ): AuthResponseDto!
+  logout: Boolean!
+  updateUser(id: String!, updateUserInput: UpdateUserInput!): User!
+  validateToken(token: String!): Boolean!
+}
+
+type Query {
+  getUsers: [User!]!
+  hello: String!
+  ping: String!
+}
+
+input UpdateUserInput {
+  email: String
+  firstName: String
+  isTwoFactorEnabled: Boolean
+  lastName: String
+  password: String
+  role: UserRole
+}
+
+type User {
+  createdAt: DateTime!
+  email: String!
+  firstName: String!
+  id: ID!
+  isActive: Boolean!
+  isTwoFactorEnabled: Boolean!
+  lastName: String!
+  role: UserRole!
+  updatedAt: DateTime!
+}
+
+"""User role types"""
+enum UserRole {
+  ADMIN
+  CORPORATE
+  SMALL_BUSINESS
+}
